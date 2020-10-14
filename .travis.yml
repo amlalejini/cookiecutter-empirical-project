@@ -1,0 +1,116 @@
+# only build pull requests and merges to master or dev
+# adapted from https://stackoverflow.com/a/31882307
+if: (type = push AND branch IN (cut-cookie, dev)) OR (type = pull_request AND NOT branch =~ /no-ci/)
+dist: xenial
+sudo: required
+
+services:
+- docker
+
+jobs:
+  include:
+  - stage: Tests
+
+    name: Unit Tests (clang, debug mode)
+    env: CXX=clang++
+    install:
+    - docker build -t devosoft/cookiecutter-empirical-project .
+    - docker ps -a
+    script:
+    - sudo docker run -e CXX --cap-add=SYS_ADMIN -e CXX -i devosoft/cookiecutter-empirical-project /bin/bash -c "set -x && cd /opt/cookiecutter-empirical-project/tests && make"
+
+    name: Unit Tests (gcc, debug mode)
+    env: CXX=g++
+    install:
+    - docker build -t devosoft/cookiecutter-empirical-project .
+    - docker ps -a
+    script:
+    - sudo docker run -e CXX --cap-add=SYS_ADMIN -e CXX -i devosoft/cookiecutter-empirical-project /bin/bash -c "set -x && cd /opt/cookiecutter-empirical-project/tests && make"
+
+  - name: Unit Tests (clang, full debug mode)
+    env: CXX=clang++
+    install:
+    - docker build -t devosoft/cookiecutter-empirical-project .
+    - docker ps -a
+    script:
+    - sudo docker run -e CXX --cap-add=SYS_ADMIN -e CXX -i devosoft/cookiecutter-empirical-project /bin/bash -c "set -x && cd /opt/cookiecutter-empirical-project/tests && make fulldebug"
+
+  - name: Unit Tests (gcc, full debug mode)
+    env: CXX=g++
+    install:
+    - docker build -t devosoft/cookiecutter-empirical-project .
+    - docker ps -a
+    script:
+    - sudo docker run -e CXX --cap-add=SYS_ADMIN -e CXX -i devosoft/cookiecutter-empirical-project /bin/bash -c "set -x && cd /opt/cookiecutter-empirical-project/tests && make fulldebug"
+
+  - name: Unit Tests (clang, opt mode)
+    env: CXX=clang++
+    install:
+    - docker build -t devosoft/cookiecutter-empirical-project .
+    - docker ps -a
+    script:
+    - sudo docker run -e CXX --cap-add=SYS_ADMIN -e CXX -i devosoft/cookiecutter-empirical-project /bin/bash -c "set -x && cd /opt/cookiecutter-empirical-project/tests && make opt"
+
+  - name: Unit Tests (gcc, opt mode)
+    env: CXX=g++
+    install:
+    - docker build -t devosoft/cookiecutter-empirical-project .
+    - docker ps -a
+    script:
+    - sudo docker run -e CXX --cap-add=SYS_ADMIN -e CXX -i devosoft/cookiecutter-empirical-project /bin/bash -c "set -x && cd /opt/cookiecutter-empirical-project/tests && make opt"
+
+  - name: Coverage
+    env: CXX=clang++
+    install:
+    - docker build -t devosoft/cookiecutter-empirical-project .
+    - docker ps -a
+    script:
+    - ci_env=`bash <(curl -s https://codecov.io/env)`
+    - sudo docker run $ci_env -e CXX devosoft/cookiecutter-empirical-project /bin/bash -c "cd /opt/cookiecutter-empirical-project && make coverage && bash <(curl -s https://codecov.io/bash)"
+
+  - name: Source (clang)
+    env: CXX=clang++
+    install:
+    - docker build -t devosoft/cookiecutter-empirical-project .
+    - docker ps -a
+    script:
+    - sudo docker run -e CXX --cap-add=SYS_ADMIN devosoft/cookiecutter-empirical-project /bin/bash -c "cd /opt/cookiecutter-empirical-project && make test"
+
+  - name: Source (gcc)
+    env: CXX=g++
+    install:
+    - docker build -t devosoft/cookiecutter-empirical-project .
+    - docker ps -a
+    script:
+    - sudo docker run -e CXX --cap-add=SYS_ADMIN devosoft/cookiecutter-empirical-project /bin/bash -c "cd /opt/cookiecutter-empirical-project && make test"
+
+  - name: Docs
+    install:
+    - docker build -t devosoft/cookiecutter-empirical-project .
+    - docker ps -a
+    script:
+    - sudo docker run devosoft/cookiecutter-empirical-project /bin/bash -c "cd /opt/cookiecutter-empirical-project && make docs"
+
+
+  - stage: Deploy
+    name: GitHub Pages
+    if: (type = push AND branch IN (cut-cookie))
+    install:
+    - docker build -t devosoft/cookiecutter-empirical-project .
+    - docker ps -a
+    script:
+    - docker run -e GH_TOKEN -e TRAVIS_BUILD_NUMBER devosoft/cookiecutter-empirical-project /bin/bash -c "cd /opt/cookiecutter-empirical-project && source third-party/emsdk/emsdk_env.sh && make web && make badges && ./ci/deploy_gh_pages.sh"
+
+  # - name: DockerHub
+  #   if: (type = push AND branch IN (cut-cookie))
+  #   install:
+  #   - docker build -t devosoft/cookiecutter-empirical-project .
+  #   - docker ps -a
+  #   script:
+  #   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  #   - docker push devosoft/cookiecutter-empirical-project
+
+
+env:
+  global:
+    secure: uTo92v1HA9mhToHw8b9BeaJn3SQhLCuMZDbuzA7DvuP2mEsPx9T2SzRWLN38hpKlZ7Yf0de5/o8o+tGMf2917XUeSuba4y97H7lB7SmpvBAukYff/0aTTdEBXIfgM+4XOFWCpsgKP+N+91WeSXb4zccx8VpzNfb6H9FJ3R2P0TFQkuz6CLcy2IHZCRw9r/+61/CuIpaek9PyAoyv0gzlmoMbbBvHvUoKLI/uLgpxd7qTLZOhFv0NvxtPXWZnhAhLGNSNUQ5hadiHfor86WNCOJNuB0y4APSGGWZ0SRZy28xmw+eO2WLWUR4E8pLicwlFCTZIfYXpy1LyMWRh0ZcLQjei9VevCsHuSQ0Kgyb6BV2MOeUbcCGy/xX6XwnmWOJtdK0uTkgFJjrFnsj/VhEauxtfT2P9VbwxAAi3IK/mz/dtY7f0jymGNUoALQlm6hwVSv4o/bBJXsBZUNX6+ErLmqWmsfjUco1zlVdewjsTF4wPv72P7+UfxBNjWLaawk+dU5Z1cf84FBiE4N8ohD1bGITVu1boj0bfdlAMYMu+1Q9r7hXz48MMz0/90eqWB/yDlXrxA1kLvhmMhRm3xK+Gxqeu0W609mDNDh+41OCRjmuolzQKAAGXmDwQi1RJxC/R1XsN96+00imPHz7W28cKaWYc/sLXPOPdbD2uv1wsgdA=
